@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: greenline-buses
+    runtime: node
+    plan: starter
+    region: frankfurt
+    buildCommand: "true"
+    startCommand: node server.js
+    healthCheckPath: /healthz
+    envVars:
+      - { key: NODE_VERSION, value: "22" }
+      - { key: HOLD_MINUTES, value: "10" }
+      - { key: SUPABASE_URL, sync: false }
+      - { key: SUPABASE_SERVICE_KEY, sync: false }
+      - { key: ADMIN_KEY, sync: false }
+      - { key: PAYHERO_API_KEY, sync: false }
+      - { key: PAYHERO_API_SECRET, sync: false }
+      - { key: PAYHERO_CHANNEL_ID, sync: false }
+      - { key: RESEND_API_KEY, sync: false }
+      - { key: MAIL_FROM, sync: false }
+      - { key: SITE_URL, sync: false }
+      - { key: PAYHERO_CALLBACK_SECRET, sync: false }
+      - { key: CALLBACK_URL, sync: false }
+      - { key: PAYHERO_PROVIDER, value: m-pesa }
+      - { key: WHATSAPP_NUMBER, sync: false }

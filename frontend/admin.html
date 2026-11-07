@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex"><title>Admin | Greenline Buses</title>
+<style>
+:root{--bg:#f4f6f1;--c:#fff;--t:#10231a;--m:#5a6b60;--g:#1f6b3a;--r:#b3261e;--l:#d9ded4;--on:#fff;color-scheme:light dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1a14;--c:#18271e;--t:#e8efe6;--m:#9db0a2;--g:#6fcf8f;--r:#ff8a80;--l:#2c4128;--on:#0f1a14}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+main{max-width:820px;margin:0 auto;padding:14px}h1{font-size:20px;margin:6px 0 12px}h2{font-size:16px;margin:0 0 8px}
+.top{display:flex;justify-content:space-between;align-items:center}
+nav{display:flex;gap:6px;overflow-x:auto;margin:0 0 14px;padding-bottom:4px}
+nav button{flex:none}
+button,select,input{font:inherit;color:var(--t)}
+button{background:var(--c);border:1px solid var(--l);border-radius:10px;padding:9px 13px;cursor:pointer}
+button.p,nav button[aria-current]{background:var(--g);color:var(--on);border-color:var(--g)}
+button.d{color:var(--r)}button:disabled{opacity:.5}
+input,select{background:var(--c);border:1px solid var(--l);border-radius:10px;padding:9px 10px;width:100%}
+label{display:block;font-size:13px;color:var(--m);margin:8px 0 0}
+.card{background:var(--c);border:1px solid var(--l);border-radius:14px;padding:14px;margin-bottom:12px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.row{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.big{font-size:22px;font-weight:700}.m{color:var(--m);font-size:13px}.err{color:var(--r);margin:8px 0}.ok{color:var(--g)}
+.it{border-top:1px solid var(--l);padding:10px 0}.it:first-child{border-top:0}
+.bar{height:8px;background:var(--g);border-radius:4px;min-width:2px}
+.tag{display:inline-block;font-size:12px;border:1px solid var(--l);border-radius:20px;padding:1px 8px;margin-left:4px}
+.wrap{overflow-x:auto}
+</style></head><body><main>
+<div class="top"><h1>Greenline admin</h1><button id="out" hidden data-a="out">Log out</button></div>
+<div id="v"></div></main>
+<script>
+var K=""; try{K=sessionStorage.getItem("k")||""}catch(e){}
+var TAB="ov",ROUTES=[],SEATS=[],ST=null,$=function(s){return document.querySelector(s)};
+var esc=function(t){return String(t==null?"":t).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})};
+var kes=function(n){return "KES "+Number(n||0).toLocaleString("en-KE")};
+var nd=function(iso){return new Date(Date.parse(iso)+3*36e5).toISOString().replace("T"," ").slice(0,16)};
+var today=new Intl.DateTimeFormat("en-CA",{timeZone:"Africa/Nairobi"}).format(new Date());
+function api(p,o){o=o||{};o.headers={"X-Admin-Key":K,"Content-Type":"application/json"};
+ return fetch("/api/admin"+p,o).then(function(r){if(r.status===401){logout();throw new Error("Wrong admin key")}
+  var ct=r.headers.get("content-type")||"";if(ct.indexOf("text/csv")>-1)return r.blob();
+  return r.json().then(function(d){if(!r.ok)throw new Error(d.error||"Error "+r.status);return d})})}
+function logout(){K="";try{sessionStorage.removeItem("k")}catch(e){}$("#out").hidden=true;login()}
+function login(m){$("#v").innerHTML='<div class="card"><h2>Enter the admin key</h2><input id="k" type="password" autocomplete="current-password" placeholder="ADMIN_KEY from Render"><div class="row"><button class="p" data-a="in">Log in</button></div><p class="err" role="alert">'+esc(m||"")+'</p></div>'}
+function shell(){var t=[["ov","Overview"],["pay","Payments"],["trip","Trips"],["msg","Messages"],["set","Settings"]];
+ $("#v").innerHTML='<nav>'+t.map(function(x){return'<button data-a="tab" data-k="'+x[0]+'"'+(TAB===x[0]?' aria-current="page"':'')+'>'+x[1]+'</button>'}).join("")+'</nav><div id="b" aria-live="polite">Loading...</div>';load()}
+function body(h){$("#b").innerHTML=h}
+function fail(e){body('<p class="err" role="alert">'+esc(e.message)+'</p>')}
+function load(){({ov:ov,pay:pay,trip:trip,msg:msg,set:sett})[TAB]()}
+function sum(l,x){return'<div class="card"><div class="m">'+l+'</div><div class="big">'+kes(x.revenue)+'</div><div class="m">'+x.count+' tickets paid</div></div>'}
+function ov(){api("/summary").then(function(s){var mx=Math.max.apply(null,s.daily.map(function(d){return d.revenue}).concat(1)),c=s.config,w=[];
+ if(!c.mail)w=w.concat((c.mail_notes&&c.mail_notes.length?c.mail_notes:["Email is not set up. Tickets will not be emailed."]));if(!c.payhero)w.push("PayHero keys are missing");if(!c.callback)w.push("PayHero callback URL or secret is missing");if(!c.whatsapp)w.push("WhatsApp number is not set");
+ body((w.length?'<div class="card err">'+w.map(esc).join("<br>")+'</div>':'')+'<div class="grid">'+sum("Today",s.today)+sum("Last 7 days",s.week)+'</div>'+sum("Last 30 days",s.month)
+ +'<div class="card"><div class="grid"><div><div class="big">'+s.pending+'</div><div class="m">Waiting for payment</div></div><div><div class="big">'+s.review+'</div><div class="m">Need a look</div></div><div><div class="big">'+s.failed_today+'</div><div class="m">Failed today</div></div><div><div class="big">'+s.support_open+'</div><div class="m">Open messages</div></div></div></div>'
+ +'<div class="card"><h2>Last 14 days</h2>'+s.daily.map(function(d){return'<div class="m">'+d.date.slice(5)+" "+kes(d.revenue)+'</div><div class="bar" style="width:'+Math.round(d.revenue/mx*100)+'%"></div>'}).join("")+'</div>'
+ +'<div class="card"><h2>Next 7 days</h2>'+(s.upcoming.length?s.upcoming.map(function(u){return'<div class="it">'+esc(u.date)+" Nairobi to "+esc(u.route)+': <b>'+u.seats+'</b> seats</div>'}).join(""):'<p class="m">No paid seats yet.</p>')+'</div>')}).catch(fail)}
+var PQ={st:"",q:""};
+function pay(){body('<div class="card"><div class="row"><select id="ps" aria-label="Status" style="flex:1"><option value="">All statuses</option>'+["pending","paid","failed","expired","underpaid"].map(function(s){return'<option'+(PQ.st===s?" selected":"")+'>'+s+'</option>'}).join("")+'</select><input id="pq" style="flex:2" placeholder="Phone, receipt or ticket" value="'+esc(PQ.q)+'"></div><div class="row"><button class="p" data-a="pgo">Search</button><button data-a="csv">Download CSV</button></div></div><div id="pl">Loading...</div>');pgo()}
+function pgo(){PQ.st=$("#ps").value;PQ.q=$("#pq").value;var qs="?status="+encodeURIComponent(PQ.st)+"&q="+encodeURIComponent(PQ.q);
+ api("/payments"+qs).then(function(d){$("#pl").innerHTML='<div class="card">'+(d.payments.length?d.payments.map(function(p){var b=p.booking||{},o=p.status==="pending"||p.status==="expired";
+  return'<div class="it"><b>'+esc(b.ref||"")+'</b> '+kes(p.amount)+'<span class="tag">'+esc(p.status)+'</span><div class="m">'+nd(p.created_at)+" · "+esc(p.phone)+" · "+esc(b.route||"")+" "+esc(b.travel_date||"")+" · seats "+esc((b.seats||[]).join(" "))+'</div>'+(p.receipt?'<div class="m">Receipt '+esc(p.receipt)+'</div>':'')+(p.fail_reason?'<div class="m">'+esc(p.fail_reason)+'</div>':'')
+  +((o||p.status==="underpaid")?'<div class="row">'+(o?'<button data-a="rc" data-id="'+p.id+'">Re-check</button>':'')+'<button data-a="ap" data-id="'+p.id+'">Approve by hand</button></div>':'')+'</div>'}).join(""):'<p class="m">Nothing found.</p>')+'</div>'}).catch(function(e){$("#pl").innerHTML='<p class="err">'+esc(e.message)+'</p>'})}
+function csv(){api("/payments.csv?status="+encodeURIComponent(PQ.st)+"&q="+encodeURIComponent(PQ.q)).then(function(b){var u=URL.createObjectURL(b),a=document.createElement("a");a.href=u;a.download="greenline-transactions.csv";document.body.appendChild(a);a.click();a.remove();setTimeout(function(){URL.revokeObjectURL(u)},4000)}).catch(function(e){alert(e.message)})}
+var TQ={to:"Kisumu",date:today};
+function trip(){body('<div class="card"><label>Route<select id="tt">'+ROUTES.map(function(r){return'<option'+(r===TQ.to?" selected":"")+'>'+esc(r)+'</option>'}).join("")+'</select></label><label>Travel date<input id="td" type="date" value="'+TQ.date+'"></label><div class="row"><button class="p" data-a="tgo">Show passengers</button></div></div><div id="tl"></div>');tgo()}
+function tgo(){TQ.to=$("#tt").value;TQ.date=$("#td").value;var qs="?to="+encodeURIComponent(TQ.to)+"&date="+TQ.date;
+ Promise.all([api("/manifest"+qs),api("/bookings"+qs)]).then(function(r){var m=r[0].rows,b=r[1].bookings;
+  $("#tl").innerHTML='<div class="card"><h2>Passenger list ('+m.length+')</h2>'+(m.length?m.map(function(x){return'<div class="it"><b>Seat '+esc(x.seat)+'</b> '+esc(x.name)+'<div class="m">'+esc(x.phone)+" · "+esc(x.ref)+'</div></div>'}).join(""):'<p class="m">No paid seats for this trip.</p>')+'</div><div class="card"><h2>All bookings</h2>'+(b.length?b.map(function(k){return'<div class="it"><b>'+esc(k.ref)+'</b> '+kes(k.total)+'<span class="tag">'+esc(k.status)+'</span><div class="m">Seats '+esc(k.seats.join(" "))+" · "+esc(k.phone)+(k.email?" · "+esc(k.email):"")+(k.status==="paid"?(k.emailed_at?" · emailed":" · not emailed"):"")+'</div>'+(k.status==="paid"?'<div class="row"><button data-a="em" data-id="'+k.id+'" data-e="'+esc(k.email||"")+'">Email ticket again</button></div>':'')+(["pending","paid","review","expired"].indexOf(k.status)>-1?'<div class="row"><button class="d" data-a="cx" data-id="'+k.id+'" data-t="'+k.total+'">Cancel and free seats</button></div>':'')+'</div>'}).join(""):'<p class="m">No bookings.</p>')+'</div>'}).catch(function(e){$("#tl").innerHTML='<p class="err">'+esc(e.message)+'</p>'})}
+function msg(){api("/support").then(function(d){body('<div class="card">'+(d.messages.length?d.messages.map(function(s){return'<div class="it"><b>'+esc(s.name||"No name")+'</b><span class="tag">'+esc(s.status)+'</span><div class="m">'+nd(s.created_at)+" · "+esc(s.phone||"")+" "+esc(s.email||"")+(s.booking_ref?" · "+esc(s.booking_ref):"")+'</div><p>'+esc(s.message)+'</p>'+(s.admin_note?'<div class="m">Note: '+esc(s.admin_note)+'</div>':'')+'<div class="row"><button data-a="ms" data-id="'+s.id+'" data-s="replied">Replied</button><button data-a="ms" data-id="'+s.id+'" data-s="closed">Close</button></div></div>'}).join(""):'<p class="m">No messages.</p>')+'</div>')}).catch(fail)}
+function sett(){api("/settings").then(function(d){var s=d.settings;ST=s;ROUTES=d.routes;SEATS=d.seats;
+ body('<div class="card"><h2>Fares (KES)</h2>'+ROUTES.map(function(r){return'<label>Nairobi to '+esc(r)+'<input type="number" inputmode="numeric" min="1" data-fare="'+esc(r)+'" value="'+s.fares[r]+'"></label>'}).join("")+'</div>'
+ +'<div class="card"><label>VIP extra per seat<input id="s1" type="number" inputmode="numeric" value="'+s.vip_extra+'"></label><label>Departure time shown on tickets<input id="s2" value="'+esc(s.departure)+'"></label><label>WhatsApp number (2547...)<input id="s3" type="tel" value="'+esc(s.whatsapp)+'"></label><label>Seats per booking<input id="s4" type="number" value="'+s.max_seats+'"></label><label>Days ahead people can book<input id="s5" type="number" value="'+s.days_ahead+'"></label><label>VIP seats (comma separated)<input id="s6" value="'+esc(s.vip_seats.join(", "))+'"></label><label>Blocked seats (comma separated)<input id="s7" value="'+esc(s.blocked_seats.join(", "))+'"></label><label><input id="s8" type="checkbox" style="width:auto"'+(s.sales_open?" checked":"")+'> Bookings are open</label><div class="row"><button class="p" data-a="sv">Save settings</button></div><p id="sm" class="m" role="status"></p></div>')}).catch(fail)}
+function lst(v){return v.split(",").map(function(x){return x.trim()}).filter(Boolean)}
+function save(){var f={};document.querySelectorAll("[data-fare]").forEach(function(i){f[i.dataset.fare]=i.value});
+ api("/settings",{method:"PUT",body:JSON.stringify({fares:f,vip_extra:$("#s1").value,departure:$("#s2").value,whatsapp:$("#s3").value,max_seats:$("#s4").value,days_ahead:$("#s5").value,vip_seats:lst($("#s6").value),blocked_seats:lst($("#s7").value),sales_open:$("#s8").checked})})
+ .then(function(){$("#sm").className="ok";$("#sm").textContent="Saved. The website picks it up within about 10 seconds."}).catch(function(e){$("#sm").className="err";$("#sm").textContent=e.message})}
+document.addEventListener("click",function(e){var t=e.target.closest("[data-a]");if(!t)return;var a=t.dataset.a,id=t.dataset.id;
+ if(a==="in"){K=$("#k").value.trim();api("/ping").then(function(){try{sessionStorage.setItem("k",K)}catch(x){}start()}).catch(function(x){K="";login(x.message)})}
+ else if(a==="out")logout();
+ else if(a==="tab"){TAB=t.dataset.k;shell()}
+ else if(a==="pgo")pgo();else if(a==="csv")csv();else if(a==="tgo")tgo();else if(a==="sv")save();
+ else if(a==="rc"){t.disabled=true;api("/payments/"+id+"/recheck",{method:"POST",body:"{}"}).then(function(d){alert("PayHero says: "+d.provider_status+". Result: "+d.result);pgo()}).catch(function(x){alert(x.message);t.disabled=false})}
+ else if(a==="ap"){var r=prompt("Only approve if PayHero shows the money. Enter the M-PESA receipt code:");if(r)api("/payments/"+id+"/approve",{method:"POST",body:JSON.stringify({receipt:r})}).then(function(d){alert("Result: "+d.result);pgo()}).catch(function(x){alert(x.message)})}
+ else if(a==="em"){var to=prompt("Send the ticket to this email:",t.dataset.e||"");if(!to)return;t.disabled=true;api("/bookings/"+id+"/email",{method:"POST",body:JSON.stringify({email:to})}).then(function(d){alert("Sent to "+d.sent_to);tgo()}).catch(function(x){alert(x.message);t.disabled=false})}
+ else if(a==="cx"){if(confirm("Cancel this booking and free its seats? Any refund of "+kes(t.dataset.t)+" must be sent by hand from PayHero."))api("/bookings/"+id+"/cancel",{method:"POST",body:"{}"}).then(function(){tgo()}).catch(function(x){alert(x.message)})}
+ else if(a==="ms"){var n=prompt("Note (optional)","");if(n===null)return;api("/support/"+id,{method:"PATCH",body:JSON.stringify({status:t.dataset.s,admin_note:n})}).then(msg).catch(function(x){alert(x.message)})}});
+document.addEventListener("keydown",function(e){if(e.key==="Enter"&&e.target.id==="k"){e.preventDefault();document.querySelector('[data-a="in"]').click()}});
+function start(){$("#out").hidden=false;api("/settings").then(function(d){ROUTES=d.routes;SEATS=d.seats;shell()}).catch(function(e){login(e.message)})}
+K?start():login();
+</script></body></html>
