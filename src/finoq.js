@@ -10,6 +10,7 @@ const localPhone = (p) => { const d = String(p || '').replace(/\D/g, ''); return
 
 export async function finoqStkPush(env, { amount, phone, ref }) {
   const body = { amount: Math.floor(Number(amount)), phone_number: localPhone(phone), channel_id: finoqChannel(env), provider: finoqProvider(env), external_reference: ref };
+  if (String(env.PAYHERO_ACCOUNT_ID || "").trim()) body.account_id = Number(String(env.PAYHERO_ACCOUNT_ID).trim());
   if (body.provider === 'sasapay') body.network_code = '63902';
   const cb = finoqCallback(env); if (cb) body.callback_url = cb;
   let r;
