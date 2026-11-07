@@ -37,19 +37,48 @@ export function mailDiagnosis(env) {
 
 export function ticketEmail(env, b, S, receipt) {
   const site = String(env.SITE_URL || '').replace(/\/+$/, ''), pax = b.pax || {};
-  const rows = [['Ticket code', b.ref], ['Route', 'Nairobi to ' + b.route], ['Travel date', b.travel_date], ['Departs', S.departure || ''],
-    ['Seats', (b.seats || []).join(', ')], ['Passengers', (b.seats || []).map((s) => pax[s] || '').filter(Boolean).join(', ')], ['Paid', kes(b.total) + ' by M-PESA' + (receipt ? ' (' + receipt + ')' : '')]];
   const wa = String(S.whatsapp || '').replace(/\D/g, '');
+  const waShow = wa.length === 12 && wa.startsWith('254') ? '+' + wa.slice(0, 3) + ' ' + wa.slice(3, 6) + ' ' + wa.slice(6, 9) + ' ' + wa.slice(9) : (wa ? '+' + wa : '');
+  const waLink = wa ? 'https://wa.me/' + wa + '?text=' + encodeURIComponent('Hello Greenline Buses, my ticket code is ' + b.ref) : '';
+  const names = (b.seats || []).map((s) => pax[s] || '').filter(Boolean).join(', ');
+  const rows = [['Seats', (b.seats || []).join(', ')], ['Passengers', names], ['Paid', kes(b.total) + ' by M-PESA' + (receipt ? ' (' + receipt + ')' : '')]].filter((r) => r[1]);
   const note = 'Be at the boarding point 30 minutes before departure. Carry the ID or passport used to book. Tickets are non-refundable.';
-  const text = 'Greenline Buses: your ticket\n\n' + rows.map((r) => r[0] + ': ' + r[1]).join('\n') + '\n\nShow the ticket code ' + b.ref + ' at boarding.\n' + note + (wa ? '\nQuestions? WhatsApp +' + wa : '') + '\n';
-  const tr = rows.map((r) => '<tr><td style="padding:8px 0;color:#5a6b60;font:13px Arial,sans-serif;width:110px;vertical-align:top">' + esc(r[0]) + '</td><td style="padding:8px 0;color:#10231a;font:bold 14px Arial,sans-serif">' + esc(r[1]) + '</td></tr>').join('');
-  const html = '<!doctype html><html><body style="margin:0;padding:0;background:#eef1ec"><div style="display:none;max-height:0;overflow:hidden;opacity:0">Your ticket ' + esc(b.ref) + ' to ' + esc(b.route) + ' on ' + esc(b.travel_date) + '</div>'
-    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#ffffff;border-radius:16px;overflow:hidden">'
-    + '<tr><td style="background:#1f6b3a;padding:22px 24px"><div style="font:bold 20px Arial,sans-serif;color:#ffffff">Greenline Buses</div><div style="font:14px Arial,sans-serif;color:#d6ecd9;margin-top:4px">E-ticket, payment confirmed</div></td></tr>'
-    + '<tr><td style="padding:22px 24px 6px"><div style="font:bold 28px Arial,sans-serif;color:#10231a;letter-spacing:2px">' + esc(b.ref) + '</div><div style="font:13px Arial,sans-serif;color:#5a6b60;margin-top:4px">Show this code at boarding</div></td></tr>'
-    + '<tr><td style="padding:6px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-top:1px solid #e3e6de">' + tr + '</table></td></tr>'
-    + '<tr><td style="padding:8px 24px 22px"><div style="background:#fff6e5;border:1px solid #f3dca8;border-radius:10px;padding:12px 14px;font:13px/1.5 Arial,sans-serif;color:#5b4410">' + esc(note) + '</div>'
-    + '<p style="font:12px/1.6 Arial,sans-serif;color:#5a6b60;margin:14px 0 0">' + (wa ? 'Questions? WhatsApp <a href="https://wa.me/' + esc(wa) + '" style="color:#1f6b3a">+' + esc(wa) + '</a>.<br>' : '') + (site ? 'Lost this email? Get your ticket again at <a href="' + esc(site) + '/#ticket" style="color:#1f6b3a">' + esc(site.replace(/^https?:\/\//, '')) + '/#ticket</a> with your ticket code and M-PESA number.' : '') + '</p></td></tr>'
+  const text = 'Greenline Buses: your e-ticket (payment confirmed)\n\nTicket code: ' + b.ref + '\nRoute: Nairobi to ' + b.route + '\nTravel date: ' + b.travel_date + '\nDeparts: ' + (S.departure || '')
+    + '\n' + rows.map((r) => r[0] + ': ' + r[1]).join('\n') + '\n\nShow the ticket code ' + b.ref + ' at boarding.\n' + note
+    + (waLink ? '\n\nQuestions? Chat with us on WhatsApp: ' + waLink : '') + (site ? '\nLost this email? Get your ticket again: ' + site + '/#ticket' : '') + '\n';
+  const F = 'font-family:Arial,Helvetica,sans-serif;';
+  const btn = (href, label, bg, fg, border) => '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:0 auto 10px"><tr><td align="center" bgcolor="' + bg + '" style="border-radius:12px;border:2px solid ' + border + '"><a href="' + esc(href) + '" style="display:block;padding:13px 26px;' + F + 'font-size:15px;font-weight:bold;color:' + fg + ';text-decoration:none">' + label + '</a></td></tr></table>';
+  const detail = rows.map((r) => '<tr><td style="padding:11px 0;border-bottom:1px solid #eaeee6;' + F + 'font-size:13px;color:#6a7a6f;width:105px;vertical-align:top">' + esc(r[0]) + '</td><td style="padding:11px 0;border-bottom:1px solid #eaeee6;' + F + 'font-size:15px;font-weight:bold;color:#10231a">' + esc(r[1]) + '</td></tr>').join('');
+  const html = '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head><body style="margin:0;padding:0;background:#e9eee6">'
+    + '<div style="display:none;max-height:0;overflow:hidden;opacity:0">Your ticket ' + esc(b.ref) + ' to ' + esc(b.route) + ' on ' + esc(b.travel_date) + '</div>'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:24px 12px">'
+    + '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:540px;background:#ffffff;border-radius:20px;overflow:hidden">'
+    + '<tr><td bgcolor="#14502b" style="background:#14502b;padding:20px 24px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+    + (site ? '<td width="76" valign="middle"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td bgcolor="#ffffff" style="background:#ffffff;border-radius:12px;padding:5px 6px"><img src="' + esc(site) + '/logo.webp" width="56" alt="GL" style="display:block;border:0;height:auto"></td></tr></table></td>' : '')
+    + '<td valign="middle"><div style="' + F + 'font-size:20px;font-weight:bold;color:#ffffff;letter-spacing:.3px">Greenline Buses</div><div style="' + F + 'font-size:12px;color:#bfe0c6;margin-top:3px;letter-spacing:1px;text-transform:uppercase">E-ticket</div></td>'
+    + '<td align="right" valign="middle"><span style="display:inline-block;background:#e3f6e8;color:#14502b;' + F + 'font-size:12px;font-weight:bold;padding:7px 12px;border-radius:20px">&#10003; PAID</span></td>'
+    + '</tr></table></td></tr>'
+    + '<tr><td bgcolor="#d4a72c" style="background:#d4a72c;height:4px;line-height:4px;font-size:0">&nbsp;</td></tr>'
+    + '<tr><td style="padding:24px 24px 6px"><div style="' + F + 'font-size:11px;color:#6a7a6f;letter-spacing:1.4px;text-transform:uppercase">Route</div>'
+    + '<div style="' + F + 'font-size:26px;font-weight:bold;color:#10231a;margin-top:4px">Nairobi &rarr; ' + esc(b.route) + '</div></td></tr>'
+    + '<tr><td style="padding:10px 24px 4px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+    + '<td width="50%" valign="top"><div style="' + F + 'font-size:11px;color:#6a7a6f;letter-spacing:1.4px;text-transform:uppercase">Date</div><div style="' + F + 'font-size:16px;font-weight:bold;color:#10231a;margin-top:3px">' + esc(b.travel_date) + '</div></td>'
+    + '<td width="50%" valign="top"><div style="' + F + 'font-size:11px;color:#6a7a6f;letter-spacing:1.4px;text-transform:uppercase">Departs</div><div style="' + F + 'font-size:16px;font-weight:bold;color:#10231a;margin-top:3px">' + esc(S.departure || '') + '</div></td>'
+    + '</tr></table></td></tr>'
+    + '<tr><td style="padding:18px 24px 6px"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" bgcolor="#f1f6ee" style="background:#f1f6ee;border:2px dashed #a9c4ab;border-radius:14px;padding:16px 10px">'
+    + '<div style="' + F + 'font-size:11px;color:#6a7a6f;letter-spacing:1.4px;text-transform:uppercase">Ticket code</div>'
+    + '<div style="font-family:Consolas,Menlo,monospace;font-size:34px;font-weight:bold;color:#14502b;letter-spacing:5px;margin:6px 0 4px">' + esc(b.ref) + '</div>'
+    + '<div style="' + F + 'font-size:12px;color:#6a7a6f">Show this code at boarding</div></td></tr></table></td></tr>'
+    + '<tr><td style="padding:8px 24px 0"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">' + detail + '</table></td></tr>'
+    + '<tr><td style="padding:18px 24px 8px"><div style="background:#fff7e6;border:1px solid #f1dba6;border-left:4px solid #d4a72c;border-radius:10px;padding:12px 14px;' + F + 'font-size:13px;line-height:1.55;color:#5b4410">' + esc(note) + '</div></td></tr>'
+    + '<tr><td align="center" style="padding:14px 24px 6px">'
+    + (waLink ? btn(waLink, 'Chat with us on WhatsApp', '#128c7e', '#ffffff', '#128c7e') : '')
+    + (site ? btn(site + '/#ticket', 'View my ticket online', '#ffffff', '#14502b', '#14502b') : '')
+    + '</td></tr>'
+    + '<tr><td bgcolor="#f6f8f4" style="background:#f6f8f4;padding:16px 24px;text-align:center;' + F + 'font-size:12px;line-height:1.7;color:#6a7a6f">'
+    + (waLink ? 'Questions? <a href="' + esc(waLink) + '" style="color:#14502b;font-weight:bold;text-decoration:none">' + esc(waShow) + '</a><br>' : '')
+    + (site ? 'Lost this email? Get your ticket again with your ticket code and M-PESA number.<br>' : '')
+    + 'Greenline Buses Limited</td></tr>'
     + '</table></td></tr></table></body></html>';
   return { subject: 'Your Greenline ticket ' + b.ref + ': Nairobi to ' + b.route + ', ' + b.travel_date, text, html };
 }
